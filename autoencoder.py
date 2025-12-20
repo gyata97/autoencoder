@@ -28,7 +28,12 @@ class Autoencoder(nn.Module):
             if isinstance(m, nn.Linear):
                 nn.init.xavier_uniform_(m.weight)
                 nn.init.zeros_(m.bias)
-
+    
+    def encode(self, x):
+        return self.encoder(x)
+    
+    def decode(self, x):
+        return self.decoder(x)
 
                 
 
@@ -51,6 +56,8 @@ for epoch in range(100):
         optimizer.step()
         if i % 100 == 0:
             print(f'Epoch [{epoch+1}/100], Step [{i+1}/600], Loss: {loss.item():.4f}')
+
+
 
 
 
