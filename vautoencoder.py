@@ -2,97 +2,80 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-
-class VariationalAutoencoder(nn.Module):
+class VAE(nn.Module):
     """
-    Simple VAE for 28x28 grayscale images (e.g., MNIST).
-    Encoder -> latent mean/logvar -> reparameterize -> decoder.
+    Variational Autoencoder for 28x28 grayscale images.
     """
 
-    def __init__(self, latent_dim: int = 20):
-        super().__init__()
+    def __init__(self, latent_dim=20):
+        super(VAE, self).__init__()
         self.encoder = nn.Sequential(
-            nn.Linear(28 * 28, 400),
-            nn.ReLU(),
+            nn.Linear(784, 400),
+            nn.ReLU(inplace=True)
         )
         self.fc_mu = nn.Linear(400, latent_dim)
         self.fc_logvar = nn.Linear(400, latent_dim)
 
         self.decoder = nn.Sequential(
             nn.Linear(latent_dim, 400),
-            nn.ReLU(),
-            nn.Linear(400, 28 * 28),
-            nn.Sigmoid(),  # bounds output to [0, 1]
+            nn.ReLU(inplace=True),
+            nn.Linear(400, 784),
+            nn.Sigmoid()
         )
 
-        self._init_weights()
+        self._initialize_weights()
 
-    def _init_weights(self) -> None:
+    def _initialize_weights(self):
         for m in self.modules():
             if isinstance(m, nn.Linear):
                 nn.init.xavier_uniform_(m.weight)
-                nn.init.zeros_(m.bias)
+                nn.init.constant_(m.bias, 0)
 
-    def encode(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        h = self.encoder(x)
-        mu = self.fc_mu(h)
-        logvar = self.fc_logvar(h)
+    def encode(self, x):
+        x = self.encoder(x)
+        mu = self.fc_mu(x)
+        logvar = self.fc_logvar(x)
         return mu, logvar
 
-    def reparameterize(self, mu: torch.Tensor, logvar: torch.Tensor) -> torch.Tensor:
+    def reparameterize(self, mu, logvar):
         std = torch.exp(0.5 * logvar)
         eps = torch.randn_like(std)
-        return mu + eps * std
+        return mu + std * eps
 
-    def decode(self, z: torch.Tensor) -> torch.Tensor:
+    def decode(self, z):
         return self.decoder(z)
 
-    def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def forward(self, x):
         mu, logvar = self.encode(x)
         z = self.reparameterize(mu, logvar)
-        recon = self.decode(z)
-        return recon, mu, logvar
+        out = self.decode(z)
+        return out, mu, logvar
 
+def loss_function(recon_x, x, mu, logvar):
+    bce = F.binary_cross_entropy(recon_x, x, reduction='sum')
+    # KL Divergence
+    kld = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+    return bce + kld
 
-def vae_loss(recon_x: torch.Tensor, x: torch.Tensor, mu: torch.Tensor, logvar: torch.Tensor) -> torch.Tensor:
-    """
-    Reconstruction + KL divergence losses summed over all elements and batch.
-    """
-    bce = F.binary_cross_entropy(recon_x, x, reduction="sum")
-    # KL divergence between learned latent distribution and N(0, I)
-    kl = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
-    return bce + kl
-
-
-if __name__ == "__main__":
-    # Example training loop skeleton; plug in your DataLoader and device.
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = VariationalAutoencoder(latent_dim=20).to(device)
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
-
-    raise SystemExit(
-        "Provide a DataLoader (train_loader) and call train_vae(model, optimizer, train_loader, device)."
-    )
-
-
-def train_vae(
-    model: VariationalAutoencoder,
-    optimizer: torch.optim.Optimizer,
-    train_loader: torch.utils.data.DataLoader,
-    device: torch.device,
-    epochs: int = 10,
-) -> None:
+def train_vae(model, optimizer, train_loader, device, epochs=10):
     model.to(device)
     for epoch in range(epochs):
         model.train()
-        epoch_loss = 0.0
-        for images, _ in train_loader:
-            images = images.view(-1, 28 * 28).to(device)
+        total_loss = 0.
+        for data, _ in train_loader:
+            data = data.view(-1, 784).to(device)
             optimizer.zero_grad()
-            recon, mu, logvar = model(images)
-            loss = vae_loss(recon, images, mu, logvar)
+            recon, mu, logvar = model(data)
+            loss = loss_function(recon, data, mu, logvar)
             loss.backward()
             optimizer.step()
-            epoch_loss += loss.item()
-        avg_loss = epoch_loss / len(train_loader.dataset)
-        print(f"Epoch {epoch + 1}: loss={avg_loss:.4f}")
+            total_loss += loss.item()
+        avg = total_loss / len(train_loader.dataset)
+        print(f"Epoch [{epoch+1}/{epochs}] - Loss: {avg:.4f}")
+
+if __name__ == "__main__":
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    vae = VAE(latent_dim=20).to(device)
+    optim = torch.optim.Adam(vae.parameters(), lr=1e-3)
+
+    raise SystemExit("Plug in your DataLoader and call train_vae(vae, optim, train_loader, device).")
