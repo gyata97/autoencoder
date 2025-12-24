@@ -4,7 +4,7 @@ import torch.nn.functional as F
 
 class AlexNet(nn.Module):
     def __init__(self, num_classes=10, in_channels=1):
-        super(AlexNet, self).__init__()
+        super().__init__()
         self.features = nn.Sequential(
             nn.Conv2d(in_channels, 64, kernel_size=11, stride=4, padding=2),
             nn.ReLU(inplace=True),
@@ -20,16 +20,17 @@ class AlexNet(nn.Module):
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=3, stride=2),
         )
+        # Adapt the input feature size in the first Linear for different input image sizes accordingly!
         self.classifier = nn.Sequential(
             nn.Dropout(),
-            nn.Linear(256 * 1 * 1, 4096),  # Adapt number of features if image not 224x224
+            nn.Linear(256 * 1 * 1, 4096),
             nn.ReLU(inplace=True),
             nn.Dropout(),
             nn.Linear(4096, 4096),
             nn.ReLU(inplace=True),
-            nn.Linear(4096, num_classes),
+            nn.Linear(4096, num_classes)
         )
-        self._initialize_weights()
+        self._init_weights()
 
     def forward(self, x):
         x = self.features(x)
@@ -37,10 +38,13 @@ class AlexNet(nn.Module):
         x = self.classifier(x)
         return x
 
-    def _initialize_weights(self):
+    def _init_weights(self):
         for m in self.modules():
-            if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
+            if isinstance(m, nn.Conv2d):
                 nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
                 if m.bias is not None:
                     nn.init.zeros_(m.bias)
-
+            elif isinstance(m, nn.Linear):
+                nn.init.kaiming_uniform_(m.weight, a=math.sqrt(5))
+                if m.bias is not None:
+                    nn.init.zeros_(m.bias)
