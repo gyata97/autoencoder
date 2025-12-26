@@ -1,0 +1,57 @@
+# Azure DevOps Pipeline for Autoencoder Project
+# This pipeline builds and tests the Python/PyTorch project
+
+trigger:
+  branches:
+    include:
+      - main
+      - master
+      - develop
+  paths:
+    exclude:
+      - README.md
+      - '*.md'
+
+pr:
+  branches:
+    include:
+      - main
+      - master
+      - develop
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  pythonVersion: '3.9'
+
+stages:
+- stage: Build
+  displayName: 'Build and Test'
+  jobs:
+  - job: BuildJob
+    displayName: 'Build Python Project'
+    steps:
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: '$(pythonVersion)'
+      displayName: 'Use Python $(pythonVersion)'
+
+    - script: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+      displayName: 'Install dependencies'
+
+    - script: |
+        python -c "import torch; print(f'PyTorch version: {torch.__version__}')"
+        python -c "from alexnet import AlexNet; print('AlexNet imported successfully')"
+        python -c "from autoencoder import Autoencoder; print('Autoencoder imported successfully')"
+      displayName: 'Verify imports'
+
+    - script: |
+        python main.py --model alexnet --test-forward --batch-size 32
+        python main.py --model ae --test-forward --batch-size 32
+        python main.py --model vae --test-forward --batch-size 32
+      displayName: 'Run test forward passes'
+      continueOnError: false
+
