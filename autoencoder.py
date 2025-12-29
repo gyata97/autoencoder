@@ -1,24 +1,25 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import settings
 
 class Autoencoder(nn.Module):
     def __init__(self):
         super(Autoencoder, self).__init__()
         self.encoder = nn.Sequential(
-            nn.Linear(28 * 28, 128),
+            nn.Linear(settings.IMAGE_FLATTENED_SIZE, settings.AE_ENCODER_LAYERS[0]),
             nn.ReLU(),
-            nn.Linear(128, 64),
+            nn.Linear(settings.AE_ENCODER_LAYERS[0], settings.AE_ENCODER_LAYERS[1]),
             nn.ReLU(),
-            nn.Linear(64, 32),
+            nn.Linear(settings.AE_ENCODER_LAYERS[1], settings.AE_ENCODER_LAYERS[2]),
             nn.ReLU(),
         )
         self.decoder = nn.Sequential(
-            nn.Linear(32, 64),
+            nn.Linear(settings.AE_ENCODER_LAYERS[2], settings.AE_DECODER_LAYERS[0]),
             nn.ReLU(),
-            nn.Linear(64, 128),
+            nn.Linear(settings.AE_DECODER_LAYERS[0], settings.AE_DECODER_LAYERS[1]),
             nn.ReLU(),
-            nn.Linear(128, 28 * 28),
+            nn.Linear(settings.AE_DECODER_LAYERS[1], settings.AE_DECODER_LAYERS[2]),
             nn.Sigmoid(),
         )
         self.init_weights()
@@ -44,18 +45,18 @@ class Autoencoder(nn.Module):
 
 model = Autoencoder()
 
-optimizer = optim.Adam(model.parameters(), lr=0.001)
+optimizer = optim.Adam(model.parameters(), lr=settings.LEARNING_RATE)
 
-for epoch in range(100):
+for epoch in range(settings.NUM_EPOCHS):
     for i, (x, _) in enumerate(train_loader):
-        x = x.view(-1, 28 * 28)
+        x = x.view(-1, settings.IMAGE_FLATTENED_SIZE)
         optimizer.zero_grad()
         recon_batch = model(x)
         loss = F.binary_cross_entropy(recon_batch, x)
         loss.backward()
         optimizer.step()
-        if i % 100 == 0:
-            print(f'Epoch [{epoch+1}/100], Step [{i+1}/600], Loss: {loss.item():.4f}')
+        if i % settings.PRINT_INTERVAL == 0:
+            print(f'Epoch [{epoch+1}/{settings.NUM_EPOCHS}], Step [{i+1}/600], Loss: {loss.item():.4f}')
 
 
 

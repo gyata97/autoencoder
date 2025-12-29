@@ -1,9 +1,15 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import math
+import settings
 
 class AlexNet(nn.Module):
-    def __init__(self, num_classes=10, in_channels=1):
+    def __init__(self, num_classes=None, in_channels=None):
+        if num_classes is None:
+            num_classes = settings.ALEXNET_DEFAULT_CLASSES
+        if in_channels is None:
+            in_channels = settings.ALEXNET_DEFAULT_CHANNELS
         super().__init__()
         self.features = nn.Sequential(
             nn.Conv2d(in_channels, 64, kernel_size=11, stride=4, padding=2),
